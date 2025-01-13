@@ -3,9 +3,9 @@ import cloudinary from '../config/cloudinary';
 export const uploadImage = async (filePath: string): Promise<string> => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
-      folder: 'products', // Optional: Organize uploads in a folder
+      folder: 'products', 
     });
-    return result.secure_url; // Return the uploaded image's URL
+    return result.secure_url; 
   } catch (error: any) {
     throw new Error(`Cloudinary upload failed: ${error.message}`);
   }

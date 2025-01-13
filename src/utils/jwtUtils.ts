@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = 'your_jwt_secret_key';  // Replace with an environment variable
+const JWT_SECRET = 'secret123';  
 
 export const generateToken = (payload: object) => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });

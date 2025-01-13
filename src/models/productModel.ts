@@ -37,7 +37,7 @@ Product.init(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    price: { // Define price
+    price: { 
       type: DataTypes.FLOAT,
       allowNull: false,
     },

@@ -20,7 +20,7 @@ Order.init(
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'user_id', // Maps to `user_id` in the database
+      field: 'user_id', 
     },
     totalAmount: {
       type: DataTypes.FLOAT,
@@ -36,7 +36,7 @@ Order.init(
     sequelize,
     modelName: 'Order',
     tableName: 'orders',
-    timestamps: true, // Enable Sequelize to manage createdAt and updatedAt
+    timestamps: true, 
   }
 );
 

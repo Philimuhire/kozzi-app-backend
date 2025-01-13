@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
+import orderItemRoutes from './routes/orderItemRoutes'
 
 import errorHandler from './middlewares/errorHandler';
 
@@ -18,6 +19,7 @@ app.use('/auth', authRoutes);
 app.use('/products', productRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/orders', orderRoutes);
+app.use('/orderItems', orderItemRoutes)
 
 app.use(errorHandler);
 
