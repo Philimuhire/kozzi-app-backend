@@ -1,116 +1,128 @@
-import { Request, Response, NextFunction } from 'express';
-import {
-  createProduct,
-  fetchAllProducts,
-  fetchProductById as getProductByIdService,
-  updateProductDetails as updateProductService,
-  removeProduct as deleteProductService,
-} from '../services/productService';
-import { Product } from '../models/productModel';
+import { Request, Response } from 'express';
+import Product  from '../models/productModel';
+import cloudinary from '../config/cloudinary'
+import fs from 'fs';
+import path from 'path';
 
-export const handleCreateProduct = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { name, description, price, qty } = req.body;
-  const file = req.file?.path; 
-
+export const addProduct = async (req: Request, res: Response) => {
   try {
-    if (!file) {
-      res.status(400).json({ message: 'Image file is required' });
-      return;
+    const { name, description, price, category, quantity, status } = req.body;
+
+    // Ensure the uploaded file's path is captured
+    const imageUrl = req.file ? req.file.path : null;
+
+    if (!imageUrl) {
+      return res.status(400).json({
+        message: 'Image is required to create a product.',
+      });
     }
 
-    const priceNum = parseFloat(price);
-    const qtyNum = parseInt(qty, 10);
-
-    if (isNaN(priceNum) || priceNum <= 0) {
-      res.status(400).json({ message: 'Price must be a positive number' });
-      return;
-    }
-
-    if (isNaN(qtyNum) || qtyNum < 0) {
-      res.status(400).json({ message: 'Quantity must be a non-negative number' });
-      return;
-    }
-
-    const product = await createProduct(name, description, priceNum, qtyNum, file);
-    res.status(201).json(product);
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const handleFetchAllProducts = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const products = await fetchAllProducts();
-    res.status(200).json(products);
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const handleGetProductById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { id } = req.params;
-
-  try {
-    const product = await getProductByIdService(id);
-    if (!product) {
-      res.status(404).json({ message: 'Product not found' });
-      return;
-    }
-    res.status(200).json(product);
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const handleUpdateProduct = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { id } = req.params;
-  const { name, description, price, qty } = req.body;
-
-  try {
-    const priceNum = parseFloat(price);
-    const qtyNum = parseInt(qty, 10);
-
-    if (isNaN(priceNum) || priceNum <= 0) {
-      res.status(400).json({ message: 'Price must be a positive number' });
-      return;
-    }
-
-    if (isNaN(qtyNum) || qtyNum < 0) {
-      res.status(400).json({ message: 'Quantity must be a non-negative number' });
-      return;
-    }
-
-    const updates: Partial<Omit<Product, 'id' | 'created_at'>> = {
+    // Save the product to the database
+    const newProduct = await Product.create({
       name,
       description,
-      price: priceNum, 
-      qty: qtyNum,    
-    };
+      price,
+      category,
+      quantity,
+      status: status || 'available',
+      image_url: imageUrl, // Save the image URL in the database
+    });
 
-    if (req.file?.path) {
-      updates.image_url = req.file.path; 
-    }
-
-    const product = await updateProductService(id, updates);
-
-    if (!product) {
-      res.status(404).json({ message: 'Product not found' });
-      return;
-    }
-
-    res.status(200).json(product);
-  } catch (error) {
-    next(error);
+    res.status(201).json({
+      message: 'Product created successfully!',
+      product: newProduct,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: 'Failed to create product.',
+      error: error.message,
+    });
   }
 };
 
-export const handleDeleteProduct = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { id } = req.params;
 
+
+const getAllProducts = async (req: Request, res: Response) => {
   try {
-    await deleteProductService(id);
-    res.status(200).json({ message: 'Product deleted successfully' }); 
-  } catch (error) {
-    next(error);
+    const products = await Product.findAll();
+    res.status(200).json(products);
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to retrieve products.', error: error.message });
   }
+};
+
+const getProductById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findByPk(id);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    res.status(200).json(product);
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to retrieve product.', error: error.message });
+  }
+};
+
+const updateProduct = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, category, qty } = req.body;
+
+    const product = await Product.findByPk(id);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    let imageUrl = product.image_url;
+    if (req.file) {
+      // Upload new image to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path);
+      imageUrl = result.secure_url;
+
+      // Remove the file from the temporary uploads folder
+      fs.unlinkSync(req.file.path);
+    }
+
+    await product.update({
+      name,
+      description,
+      price: price ? parseFloat(price) : product.price,
+      category: category || product.category,
+      qty: qty ? parseInt(qty) : product.quantity,
+      imageUrl,
+    });
+
+    res.status(200).json({ message: 'Product updated successfully!', product });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to update product.', error: error.message });
+  }
+};
+
+const deleteProduct = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    await product.destroy();
+    res.status(200).json({ message: 'Product deleted successfully!' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to delete product.', error: error.message });
+  }
+};
+
+export default {
+  addProduct,
+  getAllProducts,
+  getProductById,
+  updateProduct,
+  deleteProduct,
 };

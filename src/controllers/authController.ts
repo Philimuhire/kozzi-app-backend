@@ -1,24 +1,34 @@
-import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser } from '../services/authService';
+import { Request, Response } from 'express';
+import AuthService from '../services/authService';
 
-export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { email, password, name } = req.body;
-  
-    try {
-      const user = await registerUser(email, password, name);
-      res.status(201).json(user);
-    } catch (error: any) {
-      next(error); 
-    }
-  };
+class AuthController {
+    static async register(req: Request, res: Response) {
+        try {
+          const user = await AuthService.register(req.body);
+          res.status(201).json({
+            message: 'User created successfully',
+            user,
+          });
+        } catch (error: any) {
+          if (error.message === 'User with this email already exists') {
+            res.status(409).json({ error: error.message }); 
+          } else {
+            res.status(400).json({ error: error.message });
+          }
+        }
+      }
 
-  export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { email, password } = req.body;
-  
+  static async login(req: Request, res: Response) {
     try {
-      const { token, user } = await loginUser(email, password);
-      res.status(200).json({ message: 'Login successful', token, user });
+      const { email, password } = req.body;
+      const { user, token } = await AuthService.login(email, password);
+      res.status(200).json({  message: 'login successful',
+         user, 
+         token });
     } catch (error: any) {
-      next(error); 
+      res.status(401).json({ error: error.message });
     }
-  };
+  }
+}
+
+export default AuthController;

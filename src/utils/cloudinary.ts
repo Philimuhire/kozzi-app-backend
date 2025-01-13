@@ -1,4 +1,4 @@
-import cloudinary from '../config/cloudinaryConfig';
+import cloudinary from '../config/cloudinary';
 
 export const uploadImage = async (filePath: string): Promise<string> => {
   try {

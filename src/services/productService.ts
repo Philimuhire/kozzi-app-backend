@@ -1,67 +1,71 @@
-import {
-  createProduct as createProductModel,
-  getAllProducts,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-} from '../models/productModel';
-import { uploadImage } from '../utils/cloudinary';
-import { Product } from '../models/productModel';
+import Product from '../models/productModel';
+import cloudinary from '../config/cloudinary'
+import fs from 'fs';
 
-export const createProduct = async (
-  name: string,
-  description: string,
-  price: number,  
-  qty: number,    
-  imagePath: string
-): Promise<Product> => {
-  const imageUrl = await uploadImage(imagePath);
+class ProductService {
+  // Create a product
+  static async createProduct(data: any, filePath?: string) {
+    let image_url = null;
 
-  return createProductModel({
-    name,
-    description,
-    price,  
-    qty,   
-    image_url: imageUrl
-  });
-};
-
-export const fetchAllProducts = async (): Promise<Product[]> => {
-  return getAllProducts();
-};
-
-export const fetchProductById = async (id: string): Promise<Product | null> => {
-  return getProductById(id);
-};
-
-export const updateProductDetails = async (
-  id: string,
-  updates: Partial<Omit<Product, 'id' | 'created_at'>>,
-  imagePath?: string
-): Promise<Product | null> => {
-  try {
-    if (imagePath) {
-      updates.image_url = await uploadImage(imagePath);
+    if (filePath) {
+      const uploadResult = await cloudinary.uploader.upload(filePath, { folder: 'products' });
+      fs.unlinkSync(filePath); // Clean up temporary file
+      image_url = uploadResult.secure_url;
     }
 
-    if (updates.price !== undefined && typeof updates.price !== 'number') {
-      updates.price = parseFloat(updates.price as any);
-    }
-    
-    if (updates.qty !== undefined && typeof updates.qty !== 'number') {
-      updates.qty = parseInt(updates.qty as any, 10);
-    }
+    const product = await Product.create({
+      ...data,
+      image_url,
+    });
 
-    const product = await updateProduct(id, updates);
+    return product;
+  }
+
+  // Get all products
+  static async getAllProducts() {
+    const products = await Product.findAll();
+    return products;
+  }
+
+  // Get product by ID
+  static async getProductById(id: string) {
+    const product = await Product.findByPk(id);
+    return product;
+  }
+
+  // Update a product
+  static async updateProduct(id: string, data: any, filePath?: string) {
+    const product = await Product.findByPk(id);
     if (!product) {
       throw new Error('Product not found');
     }
-    return product;
-  } catch (error: any) {
-    throw new Error(`Failed to update product: ${error.message}`);
-  }
-};
 
-export const removeProduct = async (id: string): Promise<void> => {
-  await deleteProduct(id);
-};
+    let image_url = product.image_url;
+
+    if (filePath) {
+      const uploadResult = await cloudinary.uploader.upload(filePath, { folder: 'products' });
+      fs.unlinkSync(filePath); // Clean up temporary file
+      image_url = uploadResult.secure_url;
+    }
+
+    await product.update({
+      ...data,
+      image_url,
+    });
+
+    return product;
+  }
+
+  // Delete a product
+  static async deleteProduct(id: string) {
+    const product = await Product.findByPk(id);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
+    await product.destroy();
+    return true;
+  }
+}
+
+export default ProductService;
